@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oefenwebsite Woordafkortingen</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .feedback-correct {
+            color: #16a34a; /* green-600 */
+            background-color: #dcfce7; /* green-100 */
+            border: 1px solid #4ade80; /* green-400 */
+        }
+        .feedback-incorrect {
+            color: #dc2626; /* red-600 */
+            background-color: #fee2e2; /* red-100 */
+            border: 1px solid #f87171; /* red-400 */
+        }
+        /* Custom modal styles */
+        .modal {
+            transition: opacity 0.25s ease;
+        }
+        .modal-active {
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+        .modal-content {
+            max-height: 90vh; /* Limit height to 90% of viewport height */
+        }
+        /* Input field styling */
+        #abbreviationInput {
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        #abbreviationInput:focus {
+            border-color: #3b82f6; /* sky-600 */
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4); /* focus ring */
+        }
+        .option-button {
+            /* Base style for all options - ensures a clear 'box' look with a border and padding */
+            /* Adjusted for clearer grid cell appearance */
+            @apply bg-white text-slate-800 font-semibold py-4 px-6 rounded-lg shadow-md transition duration-150 ease-in-out border-2 border-slate-300;
+        }
+        .option-button:hover:not(.selected):not([disabled]) {
+            /* Hover state only if not selected or disabled */
+            @apply bg-slate-100 border-sky-400; /* Darker border on hover */
+        }
+        .option-button.selected {
+            /* Style when selected by user (before submission) - thicker, clearer ring */
+            @apply bg-sky-100 ring-4 ring-sky-600 ring-offset-2 border-sky-600 text-sky-900;
+        }
+        /* Feedback after submission */
+        .option-button.correct-feedback {
+            /* Style for the correct answer */
+            @apply bg-green-500 text-white ring-2 ring-green-700 ring-offset-2 border-green-700;
+        }
+        .option-button.incorrect-feedback {
+            /* Style for the user's chosen, incorrect answer */
+            @apply bg-red-500 text-white ring-2 ring-red-700 ring-offset-2 border-red-700;
+        }
+        /* Styling for disabled buttons (after submission) */
+        .option-button[disabled] {
+            @apply opacity-90 cursor-not-allowed;
+        }
+        .option-button[disabled]:hover {
+            /* Ensure disabled buttons revert to base background on hover, unless they have specific feedback */
+            @apply bg-white; 
+        }
+        .option-button[disabled].correct-feedback:hover {
+            @apply bg-green-500; /* Keep correct feedback color on hover */
+        }
+        .option-button[disabled].incorrect-feedback:hover {
+            @apply bg-red-500; /* Keep incorrect feedback color on hover */
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 flex flex-col items-center justify-center min-h-screen p-4 selection:bg-sky-300 selection:text-sky-900">
+
+    <div class="container mx-auto max-w-3xl bg-white shadow-xl rounded-lg p-6 md:p-10">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-sky-700">Oefenen met Woordafkortingen</h1>
+            <p class="text-slate-600 mt-2">Test je kennis over afkortingen, letterwoorden, initiaalwoorden, verkortingen en symbolen.</p>
+        </header>
+
+        <div class="mb-6 text-center">
+            <button id="showTheoryButton" class="bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 px-6 rounded-lg shadow transition duration-150 ease-in-out">
+                Theorie Uitleg
+            </button>
+        </div>
+
+        <section id="quizSection" class="mb-8 p-6 bg-slate-50 rounded-lg shadow-inner">
+            <div id="questionContainer" class="mb-6">
+                <p class="text-lg font-semibold mb-2 text-slate-700">Vraag <span id="questionNumber">1</span> van <span id="totalQuestions"></span>:</p>
+                <p class="text-2xl md:text-3xl font-bold text-sky-800 mb-4" id="promptText">Laden...</p>
+                <p class="text-slate-600 mb-4" id="taskDescription">Hoe kort je dit af? (Let op hoofdletters en punten)</p>
+            </div>
+
+            <!-- Changed gap to gap-10 and background to bg-slate-300 for clearer grid and cross. Added shadow. -->
+            <div id="optionsContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-10 mb-6 p-4 border border-slate-300 rounded-lg bg-slate-300 shadow-lg">
+                <!-- Opties voor meerkeuzevragen worden hier geladen -->
+            </div>
+
+            <div id="abbreviationInputContainer" class="mb-6">
+                <input type="text" id="abbreviationInput" class="w-full p-3 border-2 border-slate-300 rounded-lg text-lg focus:outline-none" placeholder="Typ hier je antwoord...">
+            </div>
+
+            <button id="submitAnswerButton" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow transition duration-150 ease-in-out disabled:opacity-50">
+                Controleer Antwoord
+            </button>
+
+            <div id="feedbackContainer" class="mt-6 p-4 rounded-lg text-center text-sm font-medium hidden">
+            </div>
+            
+            <div class="mt-4 text-center text-slate-600 text-sm">
+                <p>Huidige reeks: <span id="currentStreakDisplay" class="font-semibold text-sky-700">0</span></p>
+                <p>Langste reeks: <span id="longestStreakDisplay" class="font-semibold text-sky-700">0</span></p>
+            </div>
+        </section>
+
+        <section id="scoreSection" class="text-center mb-6 hidden p-4 bg-sky-50 rounded-lg">
+            <h2 class="text-2xl font-bold text-sky-700 mb-2">Quiz Voltooid!</h2>
+            <p class="text-lg text-slate-700">Je score: <span id="finalScore" class="font-bold">0</span> van <span id="totalScoreQuestions" class="font-bold">0</span>.</p>
+            <button id="restartQuizButton" class="mt-4 bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 px-6 rounded-lg shadow transition duration-150 ease-in-out">
+                Opnieuw Spelen
+            </button>
+        </section>
+
+        <div id="theoryModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 opacity-0 pointer-events-none">
+            <div class="modal-content bg-white w-11/12 md:max-w-2xl mx-auto rounded-lg shadow-lg p-6 md:p-8 transform scale-95 transition-transform duration-200 ease-out">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-sky-700">Theorie Uitleg</h2>
+                    <button id="closeTheoryButton" class="text-slate-500 hover:text-slate-700 text-2xl">&times;</button>
+                </div>
+                <div class="prose prose-sky max-w-none overflow-y-auto pr-2" style="max-height: 70vh;">
+                    <p>Soms is het handig om woorden niet voluit te schrijven. Je kunt er ruimte mee besparen en het levert tijdwinst op, je hoeft namelijk minder te schrijven.</p>
+                    <p>Je kunt woord(groep)en op vijf manieren korter schrijven: met een afkorting, een letterwoord, een initiaalwoord, een verkorting en een symbool.</p>
+                    
+                    <h3 class="font-semibold text-lg mt-4 mb-1">Afkorting</h3>
+                    <p>Een afkorting is de weergave van een woord(groep) met een beperkt aantal letters, die je uitspreekt als het oorspronkelijke woord. Een afkorting schrijf je met een of meer punten. Je gebruikt een hoofdletter als die ook in het oorspronkelijke woord voorkomt.</p>
+                    <p><em>Voorbeelden:</em> enz. (enzovoort), t.b.v. (ten behoeve van), H.K.H. (Hare Koninklijke Hoogheid).</p>
+
+                    <h3 class="font-semibold text-lg mt-4 mb-1">Letterwoord</h3>
+                    <p>Een letterwoord bestaat uit de eerste letters van een naam of woordgroep. Je spreekt het uit als een woord. Je schrijft een letterwoord zonder punten en je gebruikt een hoofdletter als die ook in het afgekorte woord voorkomt.</p>
+                    <p><em>Voorbeelden:</em> NAVO (Noord-Atlantische Verdragsorganisatie, spreek uit: naavoo), yup (young urban professional, spreek uit: yup).</p>
+
+                    <h3 class="font-semibold text-lg mt-4 mb-1">Initiaalwoord</h3>
+                    <p>Een initiaalwoord wordt gevormd volgens dezelfde regels als een letterwoord, maar in tegenstelling tot een letterwoord spreek je het uit als losse letters.</p>
+                    <p><em>Voorbeelden:</em> ANWB (Algemene Nederlandse Wielrijdersbond, spreek uit: aa/en/wee/bee), pc (personal computer, spreek uit: pee/see).</p>
+
+                    <h3 class="font-semibold text-lg mt-4 mb-1">Verkorting</h3>
+                    <p>Een verkorting is opgebouwd uit een of meer (delen van) lettergrepen. Je spreekt een verkorting uit als een woord.</p>
+                    <p><em>Voorbeelden:</em> doka (donkere kamer), Benelux (België, Nederland, Luxemburg).</p>
+
+                    <h3 class="font-semibold text-lg mt-4 mb-1">Symbool</h3>
+                    <p>Een symbool is een notatie van een wetenschappelijk begrip, een eenheid of een valuta. Je spreekt een symbool uit als het woord waar het voor staat. De schrijfwijze is nationaal of internationaal afgesproken. Dit geldt ook voor het gebruik van hoofdletters of kleine letters. Een symbool schrijf je zonder punt.</p>
+                    <p><em>Voorbeelden:</em> β (bèta), km (kilometer), £ (Britse pond).</p>
+                    <p>Bij sommige eenheden wordt in technische en wetenschappelijke teksten een symbool gebruikt, zoals gram (g) en seconde (s), en in andere teksten een afkorting: – 20 gr. (twintig gram), 5 sec. (vijf seconden).</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Geconsolideerde datastructuur voor alle woorden en hun afkortingen/volledige vormen
+        // Elke entry definieert een woordgroep met zijn afkorting, type en uitspraak/uitleg.
+        // Hieruit worden automatisch zowel 'afkorten' als 'uitschrijven' vragen gegenereerd.
+        const wordData = [
+            { fullName: "asociaal", abbreviation: "aso", wordType: "verkorting", pronunciationHint: "uitgesproken als 'aso'" },
+            { fullName: "bladzijde", abbreviation: "blz.", wordType: "afkorting", pronunciationHint: "uitgesproken als 'bladzijde'" },
+            { fullName: "hotel, restaurant, café", abbreviation: "horeca", wordType: "letterwoord", pronunciationHint: "uitgesproken als 'horeca'" },
+            { fullName: "met andere woorden", abbreviation: "m.a.w.", wordType: "afkorting", pronunciationHint: "uitgesproken als 'met andere woorden'" },
+            { fullName: "met name", abbreviation: "m.n.", wordType: "afkorting", pronunciationHint: "uitgesproken als 'met name'" },
+            { fullName: "televisie", abbreviation: "tv", wordType: "initiaalwoord", pronunciationHint: "uitgesproken als losse letters 'tee/vee'" },
+            { fullName: "Very Important Person", abbreviation: "vip", wordType: "letterwoord", pronunciationHint: "uitgesproken als 'vip'" },
+            { fullName: "zogenaamd", abbreviation: ["zg.", "zg"], wordType: "afkorting", pronunciationHint: "uitgesproken als 'zogenaamd'" },
+            { fullName: "zaliger gedachtenis", abbreviation: ["zg.", "z.g."], wordType: "afkorting", pronunciationHint: "uitgesproken als 'zaliger gedachtenis'" },
+            { fullName: "ter attentie van", abbreviation: "t.a.v.", wordType: "afkorting", pronunciationHint: "uitgesproken als 'ter attentie van'" },
+            { fullName: "ten aanzien van", abbreviation: "t.a.v.", wordType: "afkorting", pronunciationHint: "uitgesproken als 'ten aanzien van'" },
+            { fullName: "ten minste houdbaar tot", abbreviation: "MHD", wordType: "afkorting", pronunciationHint: "uitgesproken als 'ten minste houdbaar tot'" },
+            { fullName: "met hartelijke dank", abbreviation: "m.h.d.", wordType: "afkorting", pronunciationHint: "uitgesproken als 'met hartelijke dank'" },
+            { fullName: "Nederlandse Spoorwegen", abbreviation: "NS", wordType: "initiaalwoord", pronunciationHint: "uitgesproken als losse letters 'en/es'" },
+            { fullName: "Eerste Hulp Bij Ongelukken", abbreviation: "EHBO", wordType: "letterwoord", pronunciationHint: "uitgesproken als 'ee/haa/bee/oo' of 'eeboo'" },
+            { fullName: "extra large", abbreviation: "XL", wordType: "initiaalwoord", pronunciationHint: "uitgesproken als losse letters 'eks/el'" },
+            { fullName: "Albert Heijn", abbreviation: "Appie", wordType: "verkorting", pronunciationHint: "uitgesproken als 'appie'" },
+            { fullName: "last in, first out", abbreviation: "LIFO", wordType: "letterwoord", pronunciationHint: "uitgesproken als 'lie-foo'" },
+            { fullName: "United States of America", abbreviation: ["USA", "US", "VS"], wordType: "initiaalwoord", pronunciationHint: "uitgesproken als losse letters 'uu/es/aa'" },
+            { fullName: "seksueel overdraagbare aandoeningen", abbreviation: "soa", wordType: "letterwoord", pronunciationHint: "uitgesproken als 'soo-aa'" },
+            { fullName: "Algemene Periodieke Keuring", abbreviation: "APK", wordType: "initiaalwoord", pronunciationHint: "uitgesproken als losse letters 'aa/pee/kaa'" },
+            { fullName: "burgerservicenummer", abbreviation: "bsn", wordType: "initiaalwoord", pronunciationHint: "uitgesproken als losse letters 'bee/es/en'" },
+            { fullName: "diskjockey", abbreviation: "dj", wordType: "initiaalwoord", pronunciationHint: "uitgesproken als 'dee/jee'" },
+            { fullName: "hoger algemeen voortgezet onderwijs", abbreviation: "havo", wordType: "letterwoord", pronunciationHint: "uitgesproken als 'haavo'" },
+            { fullName: "hoger beroepsonderwijs", abbreviation: "hbo", wordType: "initiaalwoord", pronunciationHint: "uitgesproken als 'haa/bee/oo'" },
+            { fullName: "hoofdstuk", abbreviation: "hfst.", wordType: "afkorting", pronunciationHint: "uitgesproken als 'hoofdstuk'" },
+            { fullName: "intelligentiequotiënt", abbreviation: "IQ", wordType: "initiaalwoord", pronunciationHint: "uitgesproken als losse letters 'ie/kuu'" },
+            { fullName: "jongstleden", abbreviation: "jl.", wordType: "afkorting", pronunciationHint: "uitgesproken als 'jongstleden'" },
+            { fullName: "met behulp van", abbreviation: "m.b.v.", wordType: "afkorting", pronunciationHint: "uitgesproken als 'met behulp van'" },
+            { fullName: "wat betreft", abbreviation: "w.b.", wordType: "afkorting", pronunciationHint: "uitgesproken als 'wat betreft'" },
+            { fullName: "afkorting", abbreviation: "afk.", wordType: "afkorting", pronunciationHint: "uitgesproken als 'afkorting'" },
+            { fullName: "airconditioning", abbreviation: "airco", wordType: "verkorting", pronunciationHint: "uitgesproken als 'airco'" },
+            { fullName: "alstublieft", abbreviation: ["a.u.b.", "aub"], wordType: "afkorting", pronunciationHint: "uitgesproken als 'alstublieft'" },
+            { fullName: "bladzijde", abbreviation: "blz.", wordType: "afkorting", pronunciationHint: "uitgesproken als 'bladzijde'" },
+            { fullName: "Centraal Station", abbreviation: "CS", wordType: "initiaalwoord", pronunciationHint: "uitgesproken als losse letters 'see/es'" },
+            { fullName: "eerste hulp bij ongelukken", abbreviation: "EHBO", wordType: "letterwoord", pronunciationHint: "uitgesproken als 'ee/haa/bee/oo' of 'eeboo'" },
+            { fullName: "en andere", abbreviation: "e.a.", wordType: "afkorting", pronunciationHint: "uitgesproken als 'en andere'" },
+            { fullName: "lithium", abbreviation: "Li", wordType: "symbool", pronunciationHint: "uitgesproken als 'lithium'" },
+            { fullName: "Nederlandse Spoorwegen", abbreviation: "NS", wordType: "initiaalwoord", pronunciationHint: "uitgesproken als losse letters 'en/es'" },
+            { fullName: "wireless fidelity", abbreviation: "wifi", wordType: "letterwoord", pronunciationHint: "uitgesproken als 'wie-fie'" },
+        ];
+
+        // Functie om alle vragen te genereren uit de geconsolideerde wordData
+        function createAllQuestionsFromWordData(data) {
+            const questions = [];
+            const seenQuestions = new Set(); // Voor het bijhouden van unieke vragen
+
+            data.forEach(item => {
+                const pronunciationText = item.pronunciationHint ? ` (${item.pronunciationHint})` : '';
+                const baseExplanation = `Dit is een ${item.wordType}${pronunciationText}.`;
+
+                // Genereer "afkorten" taak (volledige vorm -> afkorting)
+                const abbrPrompt = item.fullName;
+                // Zorg ervoor dat correctAnswer altijd een array is, zelfs als het één string is
+                const abbrCorrectAnswer = Array.isArray(item.abbreviation) ? item.abbreviation : [item.abbreviation];
+                const abbrExplanation = `${baseExplanation} De correcte schrijfwijze is "${abbrCorrectAnswer.join(' of ')}".`;
+                
+                const abbrQuestionKey = `abbreviate-${abbrPrompt}-${abbrCorrectAnswer.join('|')}`;
+                if (!seenQuestions.has(abbrQuestionKey)) {
+                    questions.push({
+                        taskType: "abbreviate",
+                        prompt: abbrPrompt,
+                        type: item.wordType,
+                        correctAnswer: abbrCorrectAnswer, // Gebruik 'correctAnswer' consistent
+                        explanation: abbrExplanation
+                    });
+                    seenQuestions.add(abbrQuestionKey);
+                }
+
+                // Genereer "identificeren" taak (afkorting -> volledige vorm)
+                const identifyPrompt = Array.isArray(item.abbreviation) ? item.abbreviation[0] : item.abbreviation; // Gebruik de eerste afkorting als prompt voor identificatie
+                // Zorg ervoor dat correctAnswer altijd een array is, zelfs als het één string is
+                const identifyCorrectAnswer = Array.isArray(item.fullName) ? item.fullName : [item.fullName];
+                const identifyExplanation = `${baseExplanation} De volledige naam is: "${identifyCorrectAnswer.join(' of ')}".`;
+
+                const identifyQuestionKey = `identify-${identifyPrompt}-${identifyCorrectAnswer.join('|')}`;
+                if (!seenQuestions.has(identifyQuestionKey)) {
+                    questions.push({
+                        taskType: "identify",
+                        prompt: identifyPrompt,
+                        type: item.wordType,
+                        correctAnswer: identifyCorrectAnswer, // Gebruik 'correctAnswer' consistent
+                        explanation: identifyExplanation
+                    });
+                    seenQuestions.add(identifyQuestionKey);
+                }
+            });
+            return questions;
+        }
+
+        const allQuestions = createAllQuestionsFromWordData(wordData);
+
+        // DOM Elementen
+        const promptTextElem = document.getElementById('promptText');
+        const taskDescriptionElem = document.getElementById('taskDescription');
+        const optionsContainerElem = document.getElementById('optionsContainer');
+        const abbreviationInputContainerElem = document.getElementById('abbreviationInputContainer');
+        const abbreviationInputElem = document.getElementById('abbreviationInput');
+        const submitAnswerButtonElem = document.getElementById('submitAnswerButton');
+        const feedbackContainerElem = document.getElementById('feedbackContainer');
+        const questionNumberElem = document = document.getElementById('questionNumber');
+        const totalQuestionsElem = document.getElementById('totalQuestions');
+        const showTheoryButtonElem = document.getElementById('showTheoryButton');
+        const theoryModalElem = document.getElementById('theoryModal');
+        const closeTheoryButtonElem = document.getElementById('closeTheoryButton');
+        const quizSectionElem = document.getElementById('quizSection');
+        const scoreSectionElem = document.getElementById('scoreSection');
+        const finalScoreElem = document.getElementById('finalScore');
+        const totalScoreQuestionsElem = document.getElementById('totalScoreQuestions');
+        const restartQuizButtonElem = document.getElementById('restartQuizButton');
+        const currentStreakDisplayElem = document.getElementById('currentStreakDisplay');
+        const longestStreakDisplayElem = document.getElementById('longestStreakDisplay');
+
+        // Quiz status variabelen
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let currentStreak = 0;
+        let longestStreak = 0;
+        let shuffledQuestions = [];
+        let isMultipleChoice = false; // Nieuwe variabele om vraagtype bij te houden
+        let selectedOption = null; // Voor meerkeuzevragen
+
+        // Functie om vragen te shufflen (Fisher-Yates shuffle)
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // Functie om willekeurige foute antwoorden te genereren
+        function generateIncorrectOptions(currentQuestion, allData) {
+            const incorrectOptions = new Set();
+            // Normaliseer alle correcte antwoorden van de huidige vraag voor vergelijking
+            const correctNormalizedArray = Array.isArray(currentQuestion.correctAnswer)
+                ? currentQuestion.correctAnswer.map(a => a.toLowerCase().replace(/[\s.]+/g, ''))
+                : [currentQuestion.correctAnswer.toLowerCase().replace(/[\s.]+/g, '')];
+
+            // Filter alle items die NIET het correcte antwoord zijn voor de huidige vraag,
+            // en die niet exact hetzelfde zijn als de prompt van de huidige vraag.
+            const potentialIncorrectCandidates = allData.filter(item => {
+                let itemAnswers;
+                let itemPrompt;
+
+                if (currentQuestion.taskType === "abbreviate") {
+                    // Als de huidige vraag is om af te korten (fullName -> abbreviation),
+                    // dan zoeken we naar afkortingen als foute antwoorden.
+                    itemAnswers = Array.isArray(item.abbreviation) ? item.abbreviation : [item.abbreviation];
+                    itemPrompt = item.fullName; // De prompt van dit 'item'
+                } else { // taskType === "identify"
+                    // Als de huidige vraag is om te identificeren (abbreviation -> fullName),
+                    // dan zoeken we naar volledige vormen als foute antwoorden.
+                    itemAnswers = Array.isArray(item.fullName) ? item.fullName : [item.fullName];
+                    itemPrompt = Array.isArray(item.abbreviation) ? item.abbreviation[0] : item.abbreviation; // De prompt van dit 'item'
+                }
+
+                // Normaliseer de prompt van de huidige vraag voor vergelijking
+                const currentQuestionPromptNormalized = currentQuestion.prompt.toLowerCase().replace(/[\s.]+/g, '');
+                // Normaliseer de prompt van het potentiële item voor vergelijking
+                const itemPromptNormalized = itemPrompt.toLowerCase().replace(/[\s.]+/g, '');
+
+                // Controleer of enig antwoord van dit 'item' overeenkomt met een correct antwoord van de huidige vraag,
+                // OF als de genormaliseerde prompt van dit 'item' overeenkomt met de genormaliseerde prompt van de huidige vraag.
+                // Dit voorkomt dat de prompt zelf als incorrecte optie verschijnt en dat correcte antwoorden als incorrect worden gebruikt.
+                const isItemCorrectAnswer = itemAnswers.some(ans => correctNormalizedArray.includes(ans.toLowerCase().replace(/[\s.]+/g, '')));
+                const isItemSameAsPrompt = (itemPromptNormalized === currentQuestionPromptNormalized);
+                
+                return !isItemCorrectAnswer && !isItemSameAsPrompt;
+            });
+
+            // Verzamel alle unieke antwoordteksten van de gefilterde kandidaten
+            const availableOptions = [];
+            potentialIncorrectCandidates.forEach(item => {
+                if (currentQuestion.taskType === "abbreviate") {
+                    if (Array.isArray(item.abbreviation)) {
+                        item.abbreviation.forEach(abbr => availableOptions.push(abbr));
+                    } else {
+                        availableOptions.push(item.abbreviation);
+                    }
+                } else { // taskType === "identify"
+                    if (Array.isArray(item.fullName)) {
+                        item.fullName.forEach(full => availableOptions.push(full));
+                    } else {
+                        availableOptions.push(item.fullName);
+                    }
+                }
+            });
+
+            // Verwijder duplicaten en schud de beschikbare opties
+            const uniqueAvailableOptions = shuffleArray(Array.from(new Set(availableOptions)));
+
+            // Selecteer maximaal 3 foute opties
+            for (let i = 0; i < uniqueAvailableOptions.length && incorrectOptions.size < 3; i++) {
+                incorrectOptions.add(uniqueAvailableOptions[i]);
+            }
+            return Array.from(incorrectOptions);
+        }
+
+        // Functie om de quiz te starten of opnieuw te starten
+        function startQuiz() {
+            shuffledQuestions = shuffleArray([...allQuestions]);
+            currentQuestionIndex = 0;
+            score = 0;
+            currentStreak = 0;
+            longestStreak = Math.max(longestStreak, localStorage.getItem('longestStreak') || 0); // Laad langste reeks van localStorage
+            updateStreakDisplay();
+            abbreviationInputElem.value = '';
+            quizSectionElem.classList.remove('hidden');
+            scoreSectionElem.classList.add('hidden');
+            loadQuestion();
+        }
+        
+        // Functie om de reeksweergave bij te werken
+        function updateStreakDisplay() {
+            currentStreakDisplayElem.textContent = currentStreak;
+            longestStreakDisplayElem.textContent = longestStreak;
+            localStorage.setItem('longestStreak', longestStreak); // Sla langste reeks op
+        }
+
+        // Functie om een vraag te laden
+        function loadQuestion() {
+            if (currentQuestionIndex < shuffledQuestions.length) {
+                const currentQuestion = shuffledQuestions[currentQuestionIndex];
+                promptTextElem.textContent = currentQuestion.prompt;
+                questionNumberElem.textContent = currentQuestionIndex + 1;
+                totalQuestionsElem.textContent = shuffledQuestions.length;
+
+                feedbackContainerElem.classList.add('hidden');
+                feedbackContainerElem.textContent = '';
+                submitAnswerButtonElem.disabled = true;
+                submitAnswerButtonElem.textContent = 'Controleer Antwoord'; // Reset knoptekst
+                submitAnswerButtonElem.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                submitAnswerButtonElem.classList.add('bg-green-600', 'hover:bg-green-700');
+                submitAnswerButtonElem.onclick = handleSubmitAnswer; // Zorg dat de klikhandler gereset wordt
+
+                selectedOption = null; // Reset geselecteerde optie
+
+                // Bepaal of het een meerkeuzevraag wordt (50% kans)
+                // En zorg ervoor dat er genoeg unieke items zijn om 3 foute antwoorden te genereren
+                isMultipleChoice = Math.random() < 0.5 && allQuestions.length >= 4; 
+
+                if (isMultipleChoice) {
+                    abbreviationInputContainerElem.classList.add('hidden');
+                    optionsContainerElem.classList.remove('hidden');
+                    setupMultipleChoice(currentQuestion);
+                } else {
+                    optionsContainerElem.classList.add('hidden');
+                    abbreviationInputContainerElem.classList.remove('hidden');
+                    abbreviationInputElem.value = '';
+                    abbreviationInputElem.disabled = false;
+                    abbreviationInputElem.focus();
+                    abbreviationInputElem.oninput = () => {
+                        submitAnswerButtonElem.disabled = abbreviationInputElem.value.trim() === '';
+                    };
+                }
+
+                if (currentQuestion.taskType === "identify") {
+                    taskDescriptionElem.textContent = "Wat is de volledige vorm van deze afkorting?";
+                } else if (currentQuestion.taskType === "abbreviate") {
+                    taskDescriptionElem.textContent = "Hoe kort je dit af?";
+                }
+            } else {
+                showFinalScore();
+            }
+        }
+
+        // Functie om meerkeuzevragen in te stellen
+        function setupMultipleChoice(question) {
+            optionsContainerElem.innerHTML = ''; // Maak opties leeg
+            // Haal de weer te geven correcte optie op (eerste in de array of de string zelf)
+            const correctOptionText = Array.isArray(question.correctAnswer) ? question.correctAnswer[0] : question.correctAnswer;
+            
+            // Genereer foute opties
+            const incorrectOptionsTexts = generateIncorrectOptions(question, wordData);
+
+            let allOptions = [correctOptionText, ...incorrectOptionsTexts];
+            
+            // Zorg ervoor dat er precies 4 unieke opties zijn, indien mogelijk.
+            // Als er minder dan 3 unieke incorrecte opties zijn, vullen we niet op met de correcte optie,
+            // maar tonen we gewoon minder opties of zorgen we voor tekstinput.
+            // Voor nu houden we het bij max 4 door te slicen.
+            allOptions = allOptions.slice(0, 4); 
+
+            // Shuffle alle opties
+            shuffleArray(allOptions); 
+
+            allOptions.forEach(optionText => {
+                const button = document.createElement('button');
+                button.textContent = optionText;
+                button.classList.add('option-button');
+                // Zorg ervoor dat bij een nieuwe vraag de feedbackklassen worden verwijderd
+                button.classList.remove('selected', 'correct-feedback', 'incorrect-feedback'); 
+                button.disabled = false; // Maak de knoppen weer klikbaar
+                
+                button.addEventListener('click', () => {
+                    // Verwijder 'selected' van alle andere knoppen
+                    document.querySelectorAll('.option-button').forEach(btn => {
+                        btn.classList.remove('selected');
+                    });
+                    button.classList.add('selected'); // Voeg 'selected' toe aan deze knop
+                    selectedOption = optionText; // Sla de geselecteerde optie op
+                    submitAnswerButtonElem.disabled = false; // Activeer de submit knop
+                });
+                optionsContainerElem.appendChild(button);
+            });
+            submitAnswerButtonElem.disabled = true; // Deactiveer de submit knop totdat een optie is geselecteerd
+        }
+
+
+        // Functie om het antwoord te controleren
+        function handleSubmitAnswer() {
+            const currentQuestion = shuffledQuestions[currentQuestionIndex];
+            let isCorrect = false;
+            let feedbackText = "";
+            let userAnswer = '';
+
+            feedbackContainerElem.classList.remove('hidden', 'feedback-correct', 'feedback-incorrect');
+
+            // Bepaal het antwoord van de gebruiker op basis van het vraagtype
+            if (isMultipleChoice) {
+                userAnswer = selectedOption;
+                if (userAnswer === null) return; // Geen optie geselecteerd, doe niets
+                // Schakel alle optieknoppen uit na indiening
+                document.querySelectorAll('.option-button').forEach(btn => {
+                    btn.disabled = true;
+                });
+            } else {
+                userAnswer = abbreviationInputElem.value.trim();
+                if (userAnswer === '') return; // Leeg antwoord, doe niets
+                abbreviationInputElem.disabled = true; // Schakel invoerveld uit na indiening
+            }
+
+            // Normaliseer het ingevoerde antwoord voor vergelijking (kleine letters, spaties en punten verwijderd)
+            const normalizedUserAnswer = userAnswer.toLowerCase().replace(/[\s.]+/g, '');
+            
+            // Normaliseer alle correcte antwoorden voor vergelijking
+            const correctAnswersNormalized = Array.isArray(currentQuestion.correctAnswer) 
+                ? currentQuestion.correctAnswer.map(ans => ans.toLowerCase().replace(/[\s.]+/g, '')) 
+                : [currentQuestion.correctAnswer.toLowerCase().replace(/[\s.]+/g, '')];
+            
+            isCorrect = correctAnswersNormalized.includes(normalizedUserAnswer);
+
+            const displayCorrectAnswer = Array.isArray(currentQuestion.correctAnswer) 
+                ? currentQuestion.correctAnswer.join(' of ') 
+                : currentQuestion.correctAnswer;
+
+            if (isCorrect) {
+                feedbackText = `Correct! `;
+                score++;
+                currentStreak++;
+                longestStreak = Math.max(longestStreak, currentStreak);
+                feedbackContainerElem.classList.add('feedback-correct');
+            } else {
+                feedbackText = `Helaas. Jouw antwoord was "${userAnswer}". De juiste ${currentQuestion.taskType === 'abbreviate' ? 'afkorting' : 'volledige vorm'} voor "${currentQuestion.prompt}" is "${displayCorrectAnswer}". `;
+                currentStreak = 0;
+                feedbackContainerElem.classList.add('feedback-incorrect');
+            }
+            feedbackText += currentQuestion.explanation;
+            feedbackContainerElem.textContent = feedbackText;
+            updateStreakDisplay();
+
+            // Visuele feedback voor meerkeuzevragen
+            if (isMultipleChoice) {
+                document.querySelectorAll('.option-button').forEach(btn => {
+                    const normalizedBtnText = btn.textContent.toLowerCase().replace(/[\s.]+/g, '');
+                    if (correctAnswersNormalized.includes(normalizedBtnText)) {
+                        btn.classList.add('correct-feedback'); // Markeer het correcte antwoord
+                    }
+                    if (btn.classList.contains('selected') && !isCorrect) {
+                        btn.classList.add('incorrect-feedback'); // Markeer het foutieve geselecteerde antwoord
+                    }
+                });
+            }
+
+            // Verander de knop om naar de volgende vraag te gaan
+            submitAnswerButtonElem.textContent = 'Volgende Vraag';
+            submitAnswerButtonElem.classList.remove('bg-green-600', 'hover:bg-green-700');
+            submitAnswerButtonElem.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            submitAnswerButtonElem.onclick = loadNextQuestion; // Wijzig de event handler
+            submitAnswerButtonElem.disabled = false; // Maak de knop weer klikbaar
+        }
+
+        // Functie om de volgende vraag te laden of de eindscore te tonen
+        function loadNextQuestion() {
+            currentQuestionIndex++;
+            loadQuestion();
+        }
+
+        // Functie om de eindscore te tonen
+        function showFinalScore() {
+            quizSectionElem.classList.add('hidden');
+            scoreSectionElem.classList.remove('hidden');
+            finalScoreElem.textContent = score;
+            totalScoreQuestionsElem.textContent = shuffledQuestions.length;
+        }
+
+        // Event listener voor de theorieknop
+        showTheoryButtonElem.addEventListener('click', () => {
+            theoryModalElem.classList.remove('opacity-0', 'pointer-events-none');
+            theoryModalElem.classList.add('modal-active');
+            document.body.classList.add('overflow-hidden'); // Voorkom scrollen op de achtergrond
+        });
+
+        // Event listener voor de sluitknop van de theoriemodal
+        closeTheoryButtonElem.addEventListener('click', () => {
+            theoryModalElem.classList.add('opacity-0', 'pointer-events-none');
+            theoryModalElem.classList.remove('modal-active');
+            document.body.classList.remove('overflow-hidden');
+        });
+
+        // Event listener voor de "Opnieuw Spelen" knop
+        restartQuizButtonElem.addEventListener('click', startQuiz);
+
+        // Start de quiz wanneer de pagina geladen is
+        window.onload = startQuiz;
+    </script>
+</body>
+</html>
