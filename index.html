@@ -49,17 +49,25 @@
             @apply bg-slate-100 border-sky-400; /* Darker border on hover */
         }
         .option-button.selected {
-            /* Style when selected by user (before submission) - thicker, clearer ring */
-            @apply bg-sky-100 ring-4 ring-sky-600 ring-offset-2 border-sky-600 text-sky-900;
+            /* Style when selected by user (before submission) - distinct blue outer ring */
+            @apply ring-4 ring-sky-500 ring-offset-2; /* This provides the clear 'clicked' indicator */
+            /* Background, text-color, and border will be handled by feedback classes or remain default */
         }
-        /* Feedback after submission */
+        /* Feedback after submission - these should set the background, text, and their own inner ring/border */
+        .option-button.selected-after-submit {
+            /* This class is applied after submission to the *chosen* button */
+            /* It ensures the 'selected' visual cue persists alongside feedback */
+            @apply ring-4 ring-blue-500 ring-offset-2; /* A distinct blue for the selected option */
+        }
         .option-button.correct-feedback {
-            /* Style for the correct answer */
-            @apply bg-green-500 text-white ring-2 ring-green-700 ring-offset-2 border-green-700;
+            /* Style for the correct answer. This class might be on the selected-after-submit button, or another button */
+            /* REMOVED conflicting 'ring' properties to allow selected-after-submit's ring to show */
+            @apply bg-green-500 text-white border-green-700;
         }
         .option-button.incorrect-feedback {
-            /* Style for the user's chosen, incorrect answer */
-            @apply bg-red-500 text-white ring-2 ring-red-700 ring-offset-2 border-red-700;
+            /* Style for the user's chosen, incorrect answer. This class will ONLY be on the selected-after-submit button if it was incorrect */
+            /* REMOVED conflicting 'ring' properties to allow selected-after-submit's ring to show */
+            @apply bg-red-500 text-white border-red-700;
         }
         /* Styling for disabled buttons (after submission) */
         .option-button[disabled] {
@@ -67,13 +75,62 @@
         }
         .option-button[disabled]:hover {
             /* Ensure disabled buttons revert to base background on hover, unless they have specific feedback */
-            @apply bg-white; 
+            @apply bg-white;
         }
         .option-button[disabled].correct-feedback:hover {
             @apply bg-green-500; /* Keep correct feedback color on hover */
         }
         .option-button[disabled].incorrect-feedback:hover {
             @apply bg-red-500; /* Keep incorrect feedback color on hover */
+        }
+
+        /* Add animation keyframes */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.02);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        @keyframes shakeX {
+            0%, 100% {
+                transform: translateX(0);
+            }
+            10%, 30%, 50%, 70%, 90% {
+                transform: translateX(-5px);
+            }
+            20%, 40%, 60%, 80% {
+                transform: translateX(5px);
+            }
+        }
+
+        /* Apply animations */
+        .animate-fadeInUp {
+            animation: fadeInUp 0.5s ease-out forwards;
+        }
+
+        .animate-pulse {
+            animation: pulse 1s infinite alternate;
+        }
+
+        .animate-shakeX {
+            animation: shakeX 0.6s cubic-bezier(.36,.07,.19,.97) both;
         }
     </style>
 </head>
@@ -112,8 +169,9 @@
             </button>
 
             <div id="feedbackContainer" class="mt-6 p-4 rounded-lg text-center text-sm font-medium hidden">
+                <!-- GIF will be added here -->
             </div>
-            
+
             <div class="mt-4 text-center text-slate-600 text-sm">
                 <p>Huidige reeks: <span id="currentStreakDisplay" class="font-semibold text-sky-700">0</span></p>
                 <p>Langste reeks: <span id="longestStreakDisplay" class="font-semibold text-sky-700">0</span></p>
@@ -137,7 +195,7 @@
                 <div class="prose prose-sky max-w-none overflow-y-auto pr-2" style="max-height: 70vh;">
                     <p>Soms is het handig om woorden niet voluit te schrijven. Je kunt er ruimte mee besparen en het levert tijdwinst op, je hoeft namelijk minder te schrijven.</p>
                     <p>Je kunt woord(groep)en op vijf manieren korter schrijven: met een afkorting, een letterwoord, een initiaalwoord, een verkorting en een symbool.</p>
-                    
+
                     <h3 class="font-semibold text-lg mt-4 mb-1">Afkorting</h3>
                     <p>Een afkorting is de weergave van een woord(groep) met een beperkt aantal letters, die je uitspreekt als het oorspronkelijke woord. Een afkorting schrijf je met een of meer punten. Je gebruikt een hoofdletter als die ook in het oorspronkelijke woord voorkomt.</p>
                     <p><em>Voorbeelden:</em> enz. (enzovoort), t.b.v. (ten behoeve van), H.K.H. (Hare Koninklijke Hoogheid).</p>
@@ -164,6 +222,46 @@
     </div>
 
     <script>
+        // Array van GIF-URL's die door de gebruiker zijn opgegeven voor correcte antwoorden
+        const correctGifs = [
+            'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExeWU4NzBvbmcxandkMzBuZjRnaW9vbDh0YjlyZWVsbXNuazNhcGk0bSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/8fen5LSZcHQ5O/giphy.gif',
+            'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExenczajFzZmpmbXF2d282cnRwb3dlYzkwcW5wYnFpNW85aTlrbmlsYyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/S9gmtkxsp48rhJ8vAG/giphy.gif',
+            'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExbWZsYTFrMWZlaDYxdG9tMXIzbm9pNnoxOHBqYzlpNjkzeHc5enBpMyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/tIeCLkB8geYtW/giphy.gif',
+            'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExbHcwcDM0NXpxOGx1ZjNubTlxOG9mbXhoZG9lajVmejUwNWFtbzY1bCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/11ISwbgCxEzMyY/giphy.gif',
+            'https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExdTgzZWV6Yjd1cmdvZ3ZjOW1jMmk2ODZ4dG4wdWtwempja29sa25vNyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/GazPMD1iWfgcM/giphy.gif',
+            'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExeW9vZXNieGNiaGc4bWs4OWdjOXhtcXo5aHgxM2w1anYxM29uNDFsYSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/13zeE9qQNC5IKk/giphy.gif',
+            'https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExejdtN3p1dmtwNzdqczRvNnM1a281a3JmeWszam42ZjU0YXRiejF3NCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/KCJHPtfViHmTmg9hUx/giphy.gif',
+            'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExY3h1d3g0eGluMXhhZm91Z3A1Z2UwbnFsMWxwMDI0Ymk3ZzZtYTVzMyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7qE7iHUUPHfV7xQI/giphy.gif',
+            'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExc3RudTZuM3hxaTM1M3M5bmVwanRkbjJ2NHZ6ZHd2YjNvYTBuMmE4MSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7abKhOpu0NwenH3O/giphy.gif',
+            'https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExaWFrdHp4MG5idmozbTBqdzdyMDNrb2RrMXFkNXAyZTNjMHc3MGZlMyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/bXkgg0a8BKM6QBLm7a/giphy.gif',
+            'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExcTlmOXVkem9jMHIxMmp4MG4xeDRsZDl6M2txYXZ6cjVndHlnajNwcCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/17jypIkG7IAid2adTQ/giphy.gif',
+            'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExbWN0eGpkbWhhcHlxa3lxdGs2bzh1MWE4aG9kcTF1bDJ5czlnMHJxNyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/kGp7RShgoXIYXhB5zw/giphy.gif',
+            'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExMXk2OW85MXY5M3U2M29nZmlncTBvNTg1NWZkN210NDNpdzdmbThvcCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/HOtwUdqy7g8aFlhYG4/giphy.gif',
+            'https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExY21xaXFtNmhrMjBka202aHFvOW81OGJhMmRsdWhzY2dwZ3pyZ2hzayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/MCQWRoaxAtxrhdC9Al/giphy.gif'
+        ];
+
+        // Array van GIF-URL's voor incorrecte antwoorden (nieuw toegevoegd)
+        const incorrectGifs = [
+            'https://media1.giphy.com/media/RMwZypp489fuGBI0Ti/giphy.gif', // Changed from https://giphy.com/gifs/request-donald-wrong-hPPx8yk3Bmqys
+            'https://media0.giphy.com/media/XwduVffh0kO3wC6LfR/giphy.gif', // Changed from https://giphy.com/gifs/thevibeisright-vibe-is-right-XwduVffh0kO3wC6LfR
+            'https://media0.giphy.com/media/WXtccLGTLB1NS/giphy.gif', // Changed from https://giphy.com/gifs/ad-wants-kmart-WXtccLGTLB1NS
+            'https://media1.giphy.com/media/kBVyxpXLJ94B6G4qHK/giphy.gif', // Changed from https://giphy.com/gifs/SPTV-season-1-episode-2-the-shield-kBVyxpXLJ94B6G4qHK
+            'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExZ20yM3ZyMGRsaW9mZjdmbzJjbDZjbGNqaDhjN2VvMzlxbzhmZjVjNyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/S4Z1rEardgtAb7GPjz/giphy.gif',
+            'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExZDV6bG1uM2RrbDZ3NHZxN2pzZ2txYnpieXZqZXMzNWY0MDFzNDJudCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/LFA6Qbj3Z7l4Y/giphy.gif',
+            'https://media1.giphy.com/media/xo8Ujjb22hsQsZodzs/giphy.gif', // Changed from https://giphy.com/gifs/xo8Ujjb22hsQsZodzs
+            'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExYWY3d3Jtc3NhMW9nMHR6dzhhY25rb3dtaXdkZjdiZTB1ZmllMmk1OCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/pIPERxSoXNxLusvoJ8/giphy.gif',
+            'https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExNG50dXpoNm54MXl0bnMyYThweW9vZ2pwbzZ0eXhpdWYxaHE5N3h6ZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/98maV70oAqIZtEYqB4/giphy.gif',
+            'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExcjVsOXEwNW51d3YzdGRzMjM1emUxY3JycWxoa3p2cmY5bGdienF0cyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/YGzttCA409Wog/giphy.gif',
+            'https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExdHprbTNtbDNqemNyMXF3b2luZjIxMDhjZWcwb2R4eXFjZWZoYzMwZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/BONGYpAVGj7FnYtgrw/giphy.gif',
+            'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExeTZneDZ3NTJuemNrZmtsMTd2ZjhvbDJlcHRjdTZ3eWRpc2Q3ejdkOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/GvNFPkAskkSafDozqD/giphy.gif',
+            'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExeTZneDZ3NTJuemNrZmtsMTd2ZjhvbDJlcHRjdTZ3eWRpc2Q3ejdkOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/GvNFPkAskkSafDozqD/giphy.gif',
+            'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExaXhhaG5rNjF0eG5wYW5xdnZvZTYzazdxODU4ajNjNWF6bGd0M2MyZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/RMwZypp489fuGBI0Ti/giphy.gif',
+            'https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExMjltYmprZ2F6bmdmbTYxZDR3cWZveTU1b2R6cXUzNmE0ODlqbXppZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/2IuVQesHni72E61jlo/giphy.gif',
+            'https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExaHp1MWNwN2M3bzd6ZHc4Z2N1d2wzNXA0dWNhbjduN2p4bGdmZTdpaSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/c1APccRNQdFrYF3WFb/giphy.gif',
+            'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExOXk0a2U1YXJhdzhxcGI4cDNycWh0YXR1OGQ0eTA2MW51eXJlbjV0MiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/CbOCHQ5BVDa9BlQWKb/giphy.gif'
+        ];
+
+
         // Geconsolideerde datastructuur voor alle woorden en hun afkortingen/volledige vormen
         // Elke entry definieert een woordgroep met zijn afkorting, type en uitspraak/uitleg.
         // Hieruit worden automatisch zowel 'afkorten' als 'uitschrijven' vragen gegenereerd.
@@ -189,7 +287,7 @@
             { fullName: "United States of America", abbreviation: ["USA", "US", "VS"], wordType: "initiaalwoord", pronunciationHint: "uitgesproken als losse letters 'uu/es/aa'" },
             { fullName: "seksueel overdraagbare aandoeningen", abbreviation: "soa", wordType: "letterwoord", pronunciationHint: "uitgesproken als 'soo-aa'" },
             { fullName: "Algemene Periodieke Keuring", abbreviation: "APK", wordType: "initiaalwoord", pronunciationHint: "uitgesproken als losse letters 'aa/pee/kaa'" },
-            { fullName: "burgerservicenummer", abbreviation: "bsn", wordType: "initiaalwoord", pronunciationHint: "uitgesproken als losse letters 'bee/es/en'" },
+            { fullName: "burgerservicenummer", abbreviation: "bsn", wordType: "initiaalwoord", pronunciationHint: "uitgesproken als 'bee/es/en'" },
             { fullName: "diskjockey", abbreviation: "dj", wordType: "initiaalwoord", pronunciationHint: "uitgesproken als 'dee/jee'" },
             { fullName: "hoger algemeen voortgezet onderwijs", abbreviation: "havo", wordType: "letterwoord", pronunciationHint: "uitgesproken als 'haavo'" },
             { fullName: "hoger beroepsonderwijs", abbreviation: "hbo", wordType: "initiaalwoord", pronunciationHint: "uitgesproken als 'haa/bee/oo'" },
@@ -224,7 +322,7 @@
                 // Zorg ervoor dat correctAnswer altijd een array is, zelfs als het één string is
                 const abbrCorrectAnswer = Array.isArray(item.abbreviation) ? item.abbreviation : [item.abbreviation];
                 const abbrExplanation = `${baseExplanation} De correcte schrijfwijze is "${abbrCorrectAnswer.join(' of ')}".`;
-                
+
                 const abbrQuestionKey = `abbreviate-${abbrPrompt}-${abbrCorrectAnswer.join('|')}`;
                 if (!seenQuestions.has(abbrQuestionKey)) {
                     questions.push({
@@ -268,7 +366,7 @@
         const abbreviationInputElem = document.getElementById('abbreviationInput');
         const submitAnswerButtonElem = document.getElementById('submitAnswerButton');
         const feedbackContainerElem = document.getElementById('feedbackContainer');
-        const questionNumberElem = document = document.getElementById('questionNumber');
+        const questionNumberElem = document.getElementById('questionNumber');
         const totalQuestionsElem = document.getElementById('totalQuestions');
         const showTheoryButtonElem = document.getElementById('showTheoryButton');
         const theoryModalElem = document.getElementById('theoryModal');
@@ -276,7 +374,7 @@
         const quizSectionElem = document.getElementById('quizSection');
         const scoreSectionElem = document.getElementById('scoreSection');
         const finalScoreElem = document.getElementById('finalScore');
-        const totalScoreQuestionsElem = document.getElementById('totalScoreQuestions');
+        const totalScoreQuestionsElem = document.getElementById('totalQuestions');
         const restartQuizButtonElem = document.getElementById('restartQuizButton');
         const currentStreakDisplayElem = document.getElementById('currentStreakDisplay');
         const longestStreakDisplayElem = document.getElementById('longestStreakDisplay');
@@ -335,7 +433,7 @@
                 // Dit voorkomt dat de prompt zelf als incorrecte optie verschijnt en dat correcte antwoorden als incorrect worden gebruikt.
                 const isItemCorrectAnswer = itemAnswers.some(ans => correctNormalizedArray.includes(ans.toLowerCase().replace(/[\s.]+/g, '')));
                 const isItemSameAsPrompt = (itemPromptNormalized === currentQuestionPromptNormalized);
-                
+
                 return !isItemCorrectAnswer && !isItemSameAsPrompt;
             });
 
@@ -380,7 +478,7 @@
             scoreSectionElem.classList.add('hidden');
             loadQuestion();
         }
-        
+
         // Functie om de reeksweergave bij te werken
         function updateStreakDisplay() {
             currentStreakDisplayElem.textContent = currentStreak;
@@ -397,7 +495,7 @@
                 totalQuestionsElem.textContent = shuffledQuestions.length;
 
                 feedbackContainerElem.classList.add('hidden');
-                feedbackContainerElem.textContent = '';
+                feedbackContainerElem.textContent = ''; // Clear existing text and GIF
                 submitAnswerButtonElem.disabled = true;
                 submitAnswerButtonElem.textContent = 'Controleer Antwoord'; // Reset knoptekst
                 submitAnswerButtonElem.classList.remove('bg-blue-600', 'hover:bg-blue-700');
@@ -408,7 +506,7 @@
 
                 // Bepaal of het een meerkeuzevraag wordt (50% kans)
                 // En zorg ervoor dat er genoeg unieke items zijn om 3 foute antwoorden te genereren
-                isMultipleChoice = Math.random() < 0.5 && allQuestions.length >= 4; 
+                isMultipleChoice = Math.random() < 0.5 && allQuestions.length >= 4;
 
                 if (isMultipleChoice) {
                     abbreviationInputContainerElem.classList.add('hidden');
@@ -440,29 +538,29 @@
             optionsContainerElem.innerHTML = ''; // Maak opties leeg
             // Haal de weer te geven correcte optie op (eerste in de array of de string zelf)
             const correctOptionText = Array.isArray(question.correctAnswer) ? question.correctAnswer[0] : question.correctAnswer;
-            
+
             // Genereer foute opties
             const incorrectOptionsTexts = generateIncorrectOptions(question, wordData);
 
             let allOptions = [correctOptionText, ...incorrectOptionsTexts];
-            
+
             // Zorg ervoor dat er precies 4 unieke opties zijn, indien mogelijk.
             // Als er minder dan 3 unieke incorrecte opties zijn, vullen we niet op met de correcte optie,
             // maar tonen we gewoon minder opties of zorgen we voor tekstinput.
             // Voor nu houden we het bij max 4 door te slicen.
-            allOptions = allOptions.slice(0, 4); 
+            allOptions = allOptions.slice(0, 4);
 
             // Shuffle alle opties
-            shuffleArray(allOptions); 
+            shuffleArray(allOptions);
 
             allOptions.forEach(optionText => {
                 const button = document.createElement('button');
                 button.textContent = optionText;
                 button.classList.add('option-button');
                 // Zorg ervoor dat bij een nieuwe vraag de feedbackklassen worden verwijderd
-                button.classList.remove('selected', 'correct-feedback', 'incorrect-feedback'); 
+                button.classList.remove('selected', 'correct-feedback', 'incorrect-feedback', 'selected-after-submit');
                 button.disabled = false; // Maak de knoppen weer klikbaar
-                
+
                 button.addEventListener('click', () => {
                     // Verwijder 'selected' van alle andere knoppen
                     document.querySelectorAll('.option-button').forEach(btn => {
@@ -485,7 +583,8 @@
             let feedbackText = "";
             let userAnswer = '';
 
-            feedbackContainerElem.classList.remove('hidden', 'feedback-correct', 'feedback-incorrect');
+            feedbackContainerElem.classList.remove('hidden', 'feedback-correct', 'feedback-incorrect', 'animate-fadeInUp', 'animate-pulse', 'animate-shakeX');
+            feedbackContainerElem.textContent = ''; // Clear previous content
 
             // Bepaal het antwoord van de gebruiker op basis van het vraagtype
             if (isMultipleChoice) {
@@ -494,6 +593,10 @@
                 // Schakel alle optieknoppen uit na indiening
                 document.querySelectorAll('.option-button').forEach(btn => {
                     btn.disabled = true;
+                    // If this button was selected by the user, add the 'selected-after-submit' class
+                    if (btn.classList.contains('selected')) {
+                        btn.classList.add('selected-after-submit');
+                    }
                 });
             } else {
                 userAnswer = abbreviationInputElem.value.trim();
@@ -503,41 +606,80 @@
 
             // Normaliseer het ingevoerde antwoord voor vergelijking (kleine letters, spaties en punten verwijderd)
             const normalizedUserAnswer = userAnswer.toLowerCase().replace(/[\s.]+/g, '');
-            
+
             // Normaliseer alle correcte antwoorden voor vergelijking
-            const correctAnswersNormalized = Array.isArray(currentQuestion.correctAnswer) 
-                ? currentQuestion.correctAnswer.map(ans => ans.toLowerCase().replace(/[\s.]+/g, '')) 
+            const correctAnswersNormalized = Array.isArray(currentQuestion.correctAnswer)
+                ? currentQuestion.correctAnswer.map(ans => ans.toLowerCase().replace(/[\s.]+/g, ''))
                 : [currentQuestion.correctAnswer.toLowerCase().replace(/[\s.]+/g, '')];
-            
+
             isCorrect = correctAnswersNormalized.includes(normalizedUserAnswer);
 
-            const displayCorrectAnswer = Array.isArray(currentQuestion.correctAnswer) 
-                ? currentQuestion.correctAnswer.join(' of ') 
+            const displayCorrectAnswer = Array.isArray(currentQuestion.correctAnswer)
+                ? currentQuestion.correctAnswer.join(' of ')
                 : currentQuestion.correctAnswer;
 
             if (isCorrect) {
-                feedbackText = `Correct! `;
+                feedbackText = `Correct! ✅ `; // Added emoji
                 score++;
                 currentStreak++;
                 longestStreak = Math.max(longestStreak, currentStreak);
-                feedbackContainerElem.classList.add('feedback-correct');
+                feedbackContainerElem.classList.add('feedback-correct', 'animate-fadeInUp', 'animate-pulse'); // Added animations
+
+                // Kies een willekeurige GIF uit de correctGifs array
+                const randomIndex = Math.floor(Math.random() * correctGifs.length);
+                const randomGifUrl = correctGifs[randomIndex];
+
+                // Voeg GIF toe voor correct antwoord
+                const gif = document.createElement('img');
+                gif.src = randomGifUrl;
+                gif.alt = 'Vierings GIF'; // Algemene alt-tekst
+                gif.loading = 'lazy'; // Lazy load GIF
+                gif.onerror = function() {
+                    // Verberg de GIF als deze niet geladen kan worden
+                    this.style.display = 'none';
+                    console.error('Failed to load GIF:', this.src);
+                };
+                gif.classList.add('w-24', 'h-24', 'mx-auto', 'mt-2', 'rounded-lg'); // Tailwind classes for sizing and centering
+                feedbackContainerElem.appendChild(gif);
+
             } else {
-                feedbackText = `Helaas. Jouw antwoord was "${userAnswer}". De juiste ${currentQuestion.taskType === 'abbreviate' ? 'afkorting' : 'volledige vorm'} voor "${currentQuestion.prompt}" is "${displayCorrectAnswer}". `;
+                feedbackText = `Helaas. Jouw antwoord was "${userAnswer}". ❌ De juiste ${currentQuestion.taskType === 'abbreviate' ? 'afkorting' : 'volledige vorm'} voor "${currentQuestion.prompt}" is "${displayCorrectAnswer}". `; // Added emoji
                 currentStreak = 0;
-                feedbackContainerElem.classList.add('feedback-incorrect');
+                feedbackContainerElem.classList.add('feedback-incorrect', 'animate-fadeInUp', 'animate-shakeX'); // Added animations
+
+                // Kies een willekeurige GIF uit de incorrectGifs array
+                const randomIndex = Math.floor(Math.random() * incorrectGifs.length);
+                const randomGifUrl = incorrectGifs[randomIndex];
+
+                // Voeg GIF toe voor incorrect antwoord
+                const gif = document.createElement('img');
+                gif.src = randomGifUrl;
+                gif.alt = 'Onjuiste GIF'; // Algemene alt-tekst
+                gif.loading = 'lazy'; // Lazy load GIF
+                gif.onerror = function() {
+                    // Verberg de GIF als deze niet geladen kan worden
+                    this.style.display = 'none';
+                    console.error('Failed to load GIF:', this.src);
+                };
+                gif.classList.add('w-24', 'h-24', 'mx-auto', 'mt-2', 'rounded-lg'); // Tailwind classes for sizing and centering
+                feedbackContainerElem.appendChild(gif);
             }
             feedbackText += currentQuestion.explanation;
-            feedbackContainerElem.textContent = feedbackText;
+            feedbackContainerElem.prepend(document.createTextNode(feedbackText)); // Add text before GIF
+            feedbackContainerElem.classList.remove('hidden'); // Ensure it's visible now
             updateStreakDisplay();
 
             // Visuele feedback voor meerkeuzevragen
             if (isMultipleChoice) {
                 document.querySelectorAll('.option-button').forEach(btn => {
                     const normalizedBtnText = btn.textContent.toLowerCase().replace(/[\s.]+/g, '');
+                    // Apply correct feedback to the actual correct answer (could be the selected one or another)
                     if (correctAnswersNormalized.includes(normalizedBtnText)) {
                         btn.classList.add('correct-feedback'); // Markeer het correcte antwoord
                     }
-                    if (btn.classList.contains('selected') && !isCorrect) {
+                    // If this button was the one selected by the user AND it was incorrect, apply incorrect feedback
+                    // The 'selected-after-submit' class already provides the blue ring for the user's choice.
+                    if (btn.classList.contains('selected-after-submit') && !isCorrect) {
                         btn.classList.add('incorrect-feedback'); // Markeer het foutieve geselecteerde antwoord
                     }
                 });
@@ -575,8 +717,8 @@
         // Event listener voor de sluitknop van de theoriemodal
         closeTheoryButtonElem.addEventListener('click', () => {
             theoryModalElem.classList.add('opacity-0', 'pointer-events-none');
-            theoryModalElem.classList.remove('modal-active');
             document.body.classList.remove('overflow-hidden');
+            theoryModalElem.classList.remove('modal-active');
         });
 
         // Event listener voor de "Opnieuw Spelen" knop
