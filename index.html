@@ -57,18 +57,31 @@
         .option-button.selected-after-submit {
             /* This class is applied after submission to the *chosen* button */
             /* It ensures the 'selected' visual cue persists alongside feedback */
-            @apply ring-4 ring-blue-500 ring-offset-2; /* A distinct blue for the selected option */
+            /* Apply a distinct, overriding border, text color, and background to show it was the chosen option */
+            background-color: #818cf8 !important; /* Indigo-300, a very clear blue-ish highlight */
+            color: #1a202c !important; /* Dark text to contrast */
+            font-weight: 900 !important; /* Extra bold */
+            font-size: 1.25rem !important; /* Larger font size */
+            border-width: 4px !important; /* Even thicker border */
+            border-color: #4338ca !important; /* Darker indigo border */
+            @apply ring-8 ring-indigo-500 ring-offset-2 shadow-2xl; /* Even stronger ring and shadow */
         }
         .option-button.correct-feedback {
-            /* Style for the correct answer. This class might be on the selected-after-submit button, or another button */
-            /* REMOVED conflicting 'ring' properties to allow selected-after-submit's ring to show */
-            @apply bg-green-500 text-white border-green-700;
+            /* Only set background color here. Text color is handled by JS for selected-after-submit */
+            background-color: #dcfce7 !important; /* green-100 from feedback-correct */
         }
         .option-button.incorrect-feedback {
-            /* Style for the user's chosen, incorrect answer. This class will ONLY be on the selected-after-submit button if it was incorrect */
-            /* REMOVED conflicting 'ring' properties to allow selected-after-submit's ring to show */
-            @apply bg-red-500 text-white border-red-700;
+            /* Only set background color here. Text color is handled by JS for selected-after-submit */
+            background-color: #fee2e2 !important; /* red-100 from feedback-incorrect */
         }
+        /* Styling for the text of correct/incorrect options that were NOT selected by the user */
+        .option-button.correct-feedback:not(.selected-after-submit) {
+            color: #16a34a !important; /* green-600 for text of correct non-selected options */
+        }
+        .option-button.incorrect-feedback:not(.selected-after-submit) {
+            color: #dc2626 !important; /* red-600 for text of incorrect non-selected options */
+        }
+
         /* Styling for disabled buttons (after submission) */
         .option-button[disabled] {
             @apply opacity-90 cursor-not-allowed;
@@ -78,10 +91,10 @@
             @apply bg-white;
         }
         .option-button[disabled].correct-feedback:hover {
-            @apply bg-green-500; /* Keep correct feedback color on hover */
+            background-color: #dcfce7 !important; /* green-100 from feedback-correct */
         }
         .option-button[disabled].incorrect-feedback:hover {
-            @apply bg-red-500; /* Keep incorrect feedback color on hover */
+            background-color: #fee2e2 !important; /* red-100 from feedback-incorrect */
         }
 
         /* Add animation keyframes */
@@ -180,7 +193,7 @@
 
         <section id="scoreSection" class="text-center mb-6 hidden p-4 bg-sky-50 rounded-lg">
             <h2 class="text-2xl font-bold text-sky-700 mb-2">Quiz Voltooid!</h2>
-            <p class="text-lg text-slate-700">Je score: <span id="finalScore" class="font-bold">0</span> van <span id="totalScoreQuestions" class="font-bold">0</span>.</p>
+            <p class="text-lg text-slate-700">Je score: <span id="finalScore" class="font-bold">0</span> van <span id="totalQuestions" class="font-bold">0</span>.</p>
             <button id="restartQuizButton" class="mt-4 bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 px-6 rounded-lg shadow transition duration-150 ease-in-out">
                 Opnieuw Spelen
             </button>
@@ -222,45 +235,30 @@
     </div>
 
     <script>
-        // Array van GIF-URL's die door de gebruiker zijn opgegeven voor correcte antwoorden
-        const correctGifs = [
-            'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExeWU4NzBvbmcxandkMzBuZjRnaW9vbDh0YjlyZWVsbXNuazNhcGk0bSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/8fen5LSZcHQ5O/giphy.gif',
-            'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExenczajFzZmpmbXF2d282cnRwb3dlYzkwcW5wYnFpNW85aTlrbmlsYyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/S9gmtkxsp48rhJ8vAG/giphy.gif',
-            'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExbWZsYTFrMWZlaDYxdG9tMXIzbm9pNnoxOHBqYzlpNjkzeHc5enBpMyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/tIeCLkB8geYtW/giphy.gif',
-            'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExbHcwcDM0NXpxOGx1ZjNubTlxOG9mbXhoZG9lajVmejUwNWFtbzY1bCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/11ISwbgCxEzMyY/giphy.gif',
-            'https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExdTgzZWV6Yjd1cmdvZ3ZjOW1jMmk2ODZ4dG4wdWtwempja29sa25vNyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/GazPMD1iWfgcM/giphy.gif',
-            'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExeW9vZXNieGNiaGc4bWs4OWdjOXhtcXo5aHgxM2w1anYxM29uNDFsYSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/13zeE9qQNC5IKk/giphy.gif',
-            'https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExejdtN3p1dmtwNzdqczRvNnM1a281a3JmeWszam42ZjU0YXRiejF3NCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/KCJHPtfViHmTmg9hUx/giphy.gif',
+        // Array van GIF-URL's voor correcte antwoorden (directe links)
+        let correctGifs = [
+            'https://i.giphy.com/media/l0IsIqYjV1i6/giphy.gif', // Well done
+            'https://i.giphy.com/media/26gstxK4VlP0c5lMA/giphy.gif', // Thumbs up
+            'https://i.giphy.com/media/3o7abKhOpu0NwenH3O/giphy.gif',  // Yes!
             'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExY3h1d3g0eGluMXhhZm91Z3A1Z2UwbnFsMWxwMDI0Ymk3ZzZtYTVzMyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7qE7iHUUPHfV7xQI/giphy.gif',
             'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExc3RudTZuM3hxaTM1M3M5bmVwanRkbjJ2NHZ6ZHd2YjNvYTBuMmE4MSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7abKhOpu0NwenH3O/giphy.gif',
             'https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExaWFrdHp4MG5idmozbTBqdzdyMDNrb2RrMXFkNXAyZTNjMHc3MGZlMyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/bXkgg0a8BKM6QBLm7a/giphy.gif',
-            'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExcTlmOXVkem9jMHIxMmp4MG4xeDRsZDl6M2txYXZ6cjVndHlnajNwcCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/17jypIkG7IAid2adTQ/giphy.gif',
-            'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExbWN0eGpkbWhhcHlxa3lxdGs2bzh1MWE4aG9kcTF1bDJ5czlnMHJxNyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/kGp7RShgoXIYXhB5zw/giphy.gif',
-            'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExMXk2OW85MXY5M3U2M29nZmlncTBvNTg1NWZkN210NDNpdzdmbThvcCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/HOtwUdqy7g8aFlhYG4/giphy.gif',
-            'https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExY21xaXFtNmhrMjBka202aHFvOW81OGJhMmRsdWhzY2dwZ3pyZ2hzayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/MCQWRoaxAtxrhdC9Al/giphy.gif'
+            'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExcTlmOXVkem9jMHIxMmp4MG4xeDRsZDl6M2txYXZ6cjVndHlnajNwcCZlcD12MV9pbnRlcm55YWZfYnlfaWQmY3Q9Zw/17jypIkG7IAid2adTQ/giphy.gif'
         ];
 
-        // Array van GIF-URL's voor incorrecte antwoorden (nieuw toegevoegd)
-        const incorrectGifs = [
-            'https://media1.giphy.com/media/RMwZypp489fuGBI0Ti/giphy.gif', // Changed from https://giphy.com/gifs/request-donald-wrong-hPPx8yk3Bmqys
-            'https://media0.giphy.com/media/XwduVffh0kO3wC6LfR/giphy.gif', // Changed from https://giphy.com/gifs/thevibeisright-vibe-is-right-XwduVffh0kO3wC6LfR
-            'https://media0.giphy.com/media/WXtccLGTLB1NS/giphy.gif', // Changed from https://giphy.com/gifs/ad-wants-kmart-WXtccLGTLB1NS
-            'https://media1.giphy.com/media/kBVyxpXLJ94B6G4qHK/giphy.gif', // Changed from https://giphy.com/gifs/SPTV-season-1-episode-2-the-shield-kBVyxpXLJ94B6G4qHK
-            'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExZ20yM3ZyMGRsaW9mZjdmbzJjbDZjbGNqaDhjN2VvMzlxbzhmZjVjNyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/S4Z1rEardgtAb7GPjz/giphy.gif',
-            'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExZDV6bG1uM2RrbDZ3NHZxN2pzZ2txYnpieXZqZXMzNWY0MDFzNDJudCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/LFA6Qbj3Z7l4Y/giphy.gif',
-            'https://media1.giphy.com/media/xo8Ujjb22hsQsZodzs/giphy.gif', // Changed from https://giphy.com/gifs/xo8Ujjb22hsQsZodzs
-            'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExYWY3d3Jtc3NhMW9nMHR6dzhhY25rb3dtaXdkZjdiZTB1ZmllMmk1OCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/pIPERxSoXNxLusvoJ8/giphy.gif',
-            'https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExNG50dXpoNm54MXl0bnMyYThweW9vZ2pwbzZ0eXhpdWYxaHE5N3h6ZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/98maV70oAqIZtEYqB4/giphy.gif',
-            'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExcjVsOXEwNW51d3YzdGRzMjM1emUxY3JycWxoa3p2cmY5bGdienF0cyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/YGzttCA409Wog/giphy.gif',
-            'https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExdHprbTNtbDNqemNyMXF3b2luZjIxMDhjZWcwb2R4eXFjZWZoYzMwZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/BONGYpAVGj7FnYtgrw/giphy.gif',
-            'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExeTZneDZ3NTJuemNrZmtsMTd2ZjhvbDJlcHRjdTZ3eWRpc2Q3ejdkOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/GvNFPkAskkSafDozqD/giphy.gif',
-            'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExeTZneDZ3NTJuemNrZmtsMTd2ZjhvbDJlcHRjdTZ3eWRpc2Q3ejdkOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/GvNFPkAskkSafDozqD/giphy.gif',
-            'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExaXhhaG5rNjF0eG5wYW5xdnZvZTYzazdxODU4ajNjNWF6bGd0M2MyZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/RMwZypp489fuGBI0Ti/giphy.gif',
-            'https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExMjltYmprZ2F6bmdmbTYxZDR3cWZveTU1b2R6cXUzNmE0ODlqbXppZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/2IuVQesHni72E61jlo/giphy.gif',
-            'https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExaHp1MWNwN2M3bzd6ZHc4Z2N1d2wzNXA0dWNhbjduN2p4bGdmZTdpaSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/c1APccRNQdFrYF3WFb/giphy.gif',
-            'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExOXk0a2U1YXJhdzhxcGI4cDNycWh0YXR1OGQ0eTA2MW51eXJlbjV0MiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/CbOCHQ5BVDa9BlQWKb/giphy.gif'
+        // Array van GIF-URL's voor incorrecte antwoorden (directe links)
+        let incorrectGifs = [
+            'https://i.giphy.com/media/GvNFPkAskkSafDozqD/giphy.gif', // Wrong
+            'https://i.giphy.com/media/l4FGyLzFwDntXJzX2/giphy.gif', // Fail
+            'https://i.giphy.com/media/RMwZypp489fuGBI0Ti/giphy.gif',  // No
+            'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExZDV6bG1uM2RrbDZ3NHZxN2pzZ2txYnpieXZqZXMzNWY0MDFzNDMudCZlcD12MV9pbnRlcm5ubF9naWZfYnlfaWQmY3Q9Zw/LFA6Qbj3Z7l4Y/giphy.gif',
+            'https://media1.giphy.com/media/xo8Ujjb22hsQsZodzs/giphy.gif',
+            'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExYWY3d3Jtc3NhMW9nMHR6dzhhY25rb3dtaXdkZjdiZTB1ZmllMmk1OCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/pIPERxSoXNxLusvoJ8/giphy.gif'
         ];
 
+        // Huidige index voor het itereren door de GIF-lijsten
+        let currentCorrectGifIndex = 0;
+        let currentIncorrectGifIndex = 0;
 
         // Geconsolideerde datastructuur voor alle woorden en hun afkortingen/volledige vormen
         // Elke entry definieert een woordgroep met zijn afkorting, type en uitspraak/uitleg.
@@ -286,7 +284,7 @@
             { fullName: "last in, first out", abbreviation: "LIFO", wordType: "letterwoord", pronunciationHint: "uitgesproken als 'lie-foo'" },
             { fullName: "United States of America", abbreviation: ["USA", "US", "VS"], wordType: "initiaalwoord", pronunciationHint: "uitgesproken als losse letters 'uu/es/aa'" },
             { fullName: "seksueel overdraagbare aandoeningen", abbreviation: "soa", wordType: "letterwoord", pronunciationHint: "uitgesproken als 'soo-aa'" },
-            { fullName: "Algemene Periodieke Keuring", abbreviation: "APK", wordType: "initiaalwoord", pronunciationHint: "uitgesproken als losse letters 'aa/pee/kaa'" },
+            { fullName: "Algemene Periodieke Keuring", abbreviation: "APK", wordType: "initiaalwoord", pronunciationHint: "uitgesproken als 'aa/pee/kaa'" },
             { fullName: "burgerservicenummer", abbreviation: "bsn", wordType: "initiaalwoord", pronunciationHint: "uitgesproken als 'bee/es/en'" },
             { fullName: "diskjockey", abbreviation: "dj", wordType: "initiaalwoord", pronunciationHint: "uitgesproken als 'dee/jee'" },
             { fullName: "hoger algemeen voortgezet onderwijs", abbreviation: "havo", wordType: "letterwoord", pronunciationHint: "uitgesproken als 'haavo'" },
@@ -476,6 +474,13 @@
             abbreviationInputElem.value = '';
             quizSectionElem.classList.remove('hidden');
             scoreSectionElem.classList.add('hidden');
+
+            // Schud de GIF-lijsten bij het starten van de quiz
+            correctGifs = shuffleArray([...correctGifs]);
+            incorrectGifs = shuffleArray([...incorrectGifs]);
+            currentCorrectGifIndex = 0;
+            currentIncorrectGifIndex = 0;
+
             loadQuestion();
         }
 
@@ -559,6 +564,9 @@
                 button.classList.add('option-button');
                 // Zorg ervoor dat bij een nieuwe vraag de feedbackklassen worden verwijderd
                 button.classList.remove('selected', 'correct-feedback', 'incorrect-feedback', 'selected-after-submit');
+                // Reset eventuele inline stijlen die eerder zijn toegepast
+                button.style.removeProperty('color');
+                button.style.removeProperty('font-weight');
                 button.disabled = false; // Maak de knoppen weer klikbaar
 
                 button.addEventListener('click', () => {
@@ -590,12 +598,21 @@
             if (isMultipleChoice) {
                 userAnswer = selectedOption;
                 if (userAnswer === null) return; // Geen optie geselecteerd, doe niets
+
                 // Schakel alle optieknoppen uit na indiening
                 document.querySelectorAll('.option-button').forEach(btn => {
                     btn.disabled = true;
                     // If this button was selected by the user, add the 'selected-after-submit' class
                     if (btn.classList.contains('selected')) {
-                        btn.classList.add('selected-after-submit');
+                        btn.classList.remove('selected'); // Remove temporary selected class
+                        btn.classList.add('selected-after-submit'); // Add permanent selected highlight
+                        // Directe inline styling voor de geselecteerde knop om zeker te zijn dat het altijd de gewenste stijl heeft
+                        btn.style.setProperty('background-color', '#818cf8', 'important'); /* Indigo-300 */
+                        btn.style.setProperty('color', '#1a202c', 'important'); /* Donkere tekst */
+                        btn.style.setProperty('font-weight', '900', 'important'); /* Extra bold */
+                        btn.style.setProperty('font-size', '1.25rem', 'important'); /* Grotere font size */
+                        btn.style.setProperty('border-width', '4px', 'important'); /* Dikker rand */
+                        btn.style.setProperty('border-color', '#4338ca', 'important'); /* Donkerdere indigo rand */
                     }
                 });
             } else {
@@ -625,9 +642,10 @@
                 longestStreak = Math.max(longestStreak, currentStreak);
                 feedbackContainerElem.classList.add('feedback-correct', 'animate-fadeInUp', 'animate-pulse'); // Added animations
 
-                // Kies een willekeurige GIF uit de correctGifs array
-                const randomIndex = Math.floor(Math.random() * correctGifs.length);
-                const randomGifUrl = correctGifs[randomIndex];
+                // Haal de volgende GIF uit de geschudde lijst
+                const randomGifUrl = correctGifs[currentCorrectGifIndex];
+                currentCorrectGifIndex = (currentCorrectGifIndex + 1) % correctGifs.length;
+
 
                 // Voeg GIF toe voor correct antwoord
                 const gif = document.createElement('img');
@@ -647,9 +665,10 @@
                 currentStreak = 0;
                 feedbackContainerElem.classList.add('feedback-incorrect', 'animate-fadeInUp', 'animate-shakeX'); // Added animations
 
-                // Kies een willekeurige GIF uit de incorrectGifs array
-                const randomIndex = Math.floor(Math.random() * incorrectGifs.length);
-                const randomGifUrl = incorrectGifs[randomIndex];
+                // Haal de volgende GIF uit de geschudde lijst
+                const randomGifUrl = incorrectGifs[currentIncorrectGifIndex];
+                currentIncorrectGifIndex = (currentIncorrectGifIndex + 1) % incorrectGifs.length;
+
 
                 // Voeg GIF toe voor incorrect antwoord
                 const gif = document.createElement('img');
@@ -678,9 +697,29 @@
                         btn.classList.add('correct-feedback'); // Markeer het correcte antwoord
                     }
                     // If this button was the one selected by the user AND it was incorrect, apply incorrect feedback
-                    // The 'selected-after-submit' class already provides the blue ring for the user's choice.
                     if (btn.classList.contains('selected-after-submit') && !isCorrect) {
                         btn.classList.add('incorrect-feedback'); // Markeer het foutieve geselecteerde antwoord
+                        // Hier moet de geselecteerde, incorrecte knop ook een rode achtergrond krijgen
+                        btn.style.setProperty('background-color', '#fee2e2', 'important'); // Rode achtergrond voor de geselecteerde incorrecte optie
+                        btn.style.setProperty('color', '#dc2626', 'important'); // Rode tekst voor de geselecteerde incorrecte optie
+                    } else if (btn.classList.contains('selected-after-submit') && isCorrect) {
+                        // Hier moet de geselecteerde, correcte knop een groene achtergrond krijgen
+                        btn.style.setProperty('background-color', '#dcfce7', 'important'); // Groene achtergrond voor de geselecteerde correcte optie
+                        btn.style.setProperty('color', '#16a34a', 'important'); // Groene tekst voor de geselecteerde correcte optie
+                    }
+
+                    // For buttons that were NOT selected by the user, ensure their text color reflects correct/incorrect feedback
+                    if (!btn.classList.contains('selected-after-submit')) {
+                        if (correctAnswersNormalized.includes(normalizedBtnText)) {
+                            btn.style.setProperty('color', '#16a34a', 'important'); // Green text for correct non-selected
+                            btn.style.setProperty('background-color', '#dcfce7', 'important'); // Green background for correct non-selected
+                        } else {
+                            // Als het een niet-geselecteerde incorrecte optie is, dan behoudt het de standaard tekstkleur,
+                            // tenzij Tailwind base classes een andere kleur geven.
+                            // We kunnen hier de kleur herstellen naar de normale slate-800 als het niet het correcte antwoord is.
+                            btn.style.setProperty('color', '#64748b', 'important'); /* slate-500 for non-selected incorrect options */
+                            btn.style.removeProperty('background-color'); // Verwijder eerdere achtergrondkleur
+                        }
                     }
                 });
             }
@@ -724,8 +763,30 @@
         // Event listener voor de "Opnieuw Spelen" knop
         restartQuizButtonElem.addEventListener('click', startQuiz);
 
-        // Start de quiz wanneer de pagina geladen is
-        window.onload = startQuiz;
+        // Centrale Enter-toets handler
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // Voorkom standaard Enter-gedrag
+
+                // Als de knop "Volgende Vraag" toont, ga naar de volgende vraag
+                if (submitAnswerButtonElem.textContent === 'Volgende Vraag' && !submitAnswerButtonElem.disabled) {
+                    loadNextQuestion();
+                }
+                // Anders, als er een invoerveld actief is en niet leeg, of een meerkeuzeoptie is geselecteerd, dien antwoord in
+                else if (!submitAnswerButtonElem.disabled && (
+                    (abbreviationInputContainerElem.classList.contains('hidden') && selectedOption !== null) || // Meerkeuze en optie geselecteerd
+                    (!abbreviationInputContainerElem.classList.contains('hidden') && abbreviationInputElem.value.trim() !== '') // Tekstinput en niet leeg
+                )) {
+                    handleSubmitAnswer();
+                }
+            }
+        });
+
+
+        // Start de quiz wanneer de DOM volledig geladen is
+        document.addEventListener('DOMContentLoaded', () => {
+            startQuiz();
+        });
     </script>
 </body>
 </html>
